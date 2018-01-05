@@ -31,7 +31,7 @@ import java.util.Random;
 import java.util.HashMap;
 import java.util.Map;
 
-public class TestSmallFileAction extends MiniClusterHarness {
+public class TestSmallFileCompactAction extends MiniClusterHarness {
   private long sumFileLen;
   private List<String> smallFileList;
 

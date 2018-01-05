@@ -1,7 +1,7 @@
 1. **Implement a sub class of `SmartAction` Class**
 
 
-     All actions in SSM are implemented as a sub class of `SmartAction` or `HdfsAction` if it's HDFS related.  Generally each action should have there own implementations for following 2 functions,
+     All actions in SSM are implemented as a sub class of `SmartAction` or `HdfsAction` if it's HDFS related.  Generally each action should have their own implementations for following 2 functions,
    
      - a. public void init(Map<String, String> args)
   

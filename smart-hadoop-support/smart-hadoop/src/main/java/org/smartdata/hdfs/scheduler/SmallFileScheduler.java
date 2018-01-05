@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.smartdata.SmartContext;
 import org.smartdata.hdfs.action.HdfsAction;
 import org.smartdata.hdfs.action.SmallFileCompactAction;
+import org.smartdata.hdfs.action.SmallFileWriteAction;
 import org.smartdata.metastore.ActionSchedulerService;
 import org.smartdata.metastore.MetaStore;
 import org.smartdata.metastore.MetaStoreException;
@@ -33,6 +34,7 @@ import org.smartdata.model.LaunchAction;
 import org.smartdata.model.action.ScheduleResult;
 
 import java.io.IOException;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -131,6 +133,44 @@ public class SmallFileScheduler extends ActionSchedulerService {
         LOG.error("Exception occurred while processing " + action, e);
         return ScheduleResult.FAIL;
       }
+    } else if (actionInfo.getActionName().equals("small_file_write")){
+      try {
+
+        // Check if container file is null
+        String containerFilePath = action.getArgs().get(SmallFileWriteAction.CONTAINER_FILE);
+        if (containerFilePath == null) {
+          return ScheduleResult.FAIL;
+        } else {
+          containerFileMap.put(actionId, containerFilePath);
+        }
+
+        Map<String, FileContainerInfo> fileContainerInfo = new HashMap<>();
+        String filePath = action.getArgs().get(HdfsAction.FILE_PATH);
+        File localFile = new File(action.getArgs().get(SmallFileWriteAction.LOCAL_FILE));
+        long fileLen = localFile.length();
+        fileContainerInfo.put(filePath, new FileContainerInfo(containerFilePath, 0L, fileLen));
+
+        fileContainerInfoMap.put(actionId, fileContainerInfo);
+
+        // Check if container file is locked and retry
+        if (fileLock.containsKey(containerFilePath)) {
+          int retryNum = fileLock.get(containerFilePath);
+          if (retryNum > 3) {
+            LOG.error("This container file: " + containerFilePath + " is locked, failed.");
+            return ScheduleResult.FAIL;
+          } else {
+            LOG.warn("This container file: " + containerFilePath + " is locked, retrying.");
+            fileLock.put(containerFilePath, retryNum + 1);
+            return ScheduleResult.RETRY;
+          }
+        } else {
+          fileLock.put(containerFilePath, 0); // Lock this container file
+        }
+        return ScheduleResult.SUCCESS;
+      } catch (Exception e) {
+        LOG.error("Exception occurred while processing " + action, e);
+        return ScheduleResult.FAIL;
+      }
     } else if (actionInfo.getActionName().equals("write")) {
       // TODO: scheduler for write
       return ScheduleResult.SUCCESS;
@@ -157,7 +197,7 @@ public class SmallFileScheduler extends ActionSchedulerService {
     if (actionInfo.isFinished()) {
       if (actionInfo.isSuccessful()) {
         long actionId = actionInfo.getActionId();
-        if (actionInfo.getActionName().equals("compact")) {
+        if (actionInfo.getActionName().equals("compact") || actionInfo.getActionName().equals("small_file_write")) {
           try {
             for (Map.Entry<String, FileContainerInfo> entry : fileContainerInfoMap.get(actionId).entrySet()) {
               metaStore.insertSmallFile(entry.getKey(), entry.getValue());
@@ -168,7 +208,7 @@ public class SmallFileScheduler extends ActionSchedulerService {
             }
             LOG.info("Update file container info successfully.");
           } catch (MetaStoreException e) {
-            LOG.error("Process small file compact action in metaStore failed!", e);
+            LOG.error("Process small file action in metaStore failed!", e);
           }
         }
       }

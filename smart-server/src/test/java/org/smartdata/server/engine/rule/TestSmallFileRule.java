@@ -93,7 +93,7 @@ public class TestSmallFileRule extends MiniSmartClusterHarness {
     ExecutorService exec = Executors.newFixedThreadPool(30);
     for (int i = 0; i < 30; i ++) {
       System.out.println("2222222");
-      exec.submit(new TestPRead.Task("/benchmarks/TestDFSIO/io_data/test__" + i, context));
+      exec.submit(new TestPread.Task("/benchmarks/TestDFSIO/io_data/test__" + i, context));
     }
   }
 
